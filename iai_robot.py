@@ -123,11 +123,17 @@ class IAI:
         return True
 
     def drill(self):
+        # run motor code here
+
+        #############
         self.move('relative', 'z', 0.3, 100, 0, 0, 20)
         time.sleep(2)
         self.move('relative', 'z', 0.3, 100, 0, 0, -20)
         time.sleep(2)
 
+        # stop motor code here
+
+        ####################
     def set_workspace(self, origin, x_len, y_len):
         """
         set workspace range and return contraints to not go out the area
@@ -178,8 +184,16 @@ class IAI:
         print(response + '\n')
 
         # interpret response
-        axis_pattern = response[3:5]
-        axis_status = response[5:7]
+        axis_pattern = response[7:9]
+        axis_status = response[9:11]
+        axis_status = str(bin(int(axis_status,16)))[2:].rjust(8,'0') # hexstring to binary
+        servo_is_stop = axis_status[7]
+        is_home = axis_status[5:7]
+        servo_is_on = axis_status[4]
+        command_is_done = axis_status[3]
+
+        return command_is_done
+
 
     def checksum(self, string_command):
         checksum = 0
@@ -215,5 +229,6 @@ if __name__ == "__main__":
     positions = [(10, 10), (20, 10), (30, 10)]
     for position in positions:
         robot.move_in_workspace(position[0], position[1])
-        time.sleep(2)
+        while(robot.check_status() != '1'):
+            time.sleep(0.1)
         robot.drill()
