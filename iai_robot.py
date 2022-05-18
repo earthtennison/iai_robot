@@ -20,7 +20,7 @@ class IAI:
         time.sleep(15)
 
         self.origin = None
-        self.workspace_boundary = None
+        self.workspace_boundary = None  # [x_min, y_min, x_max, y_max] in absolute coordinate
 
     def move(self, message_id, axis, acceleration, speed, x_target, y_target, z_target):
         """
@@ -107,10 +107,25 @@ class IAI:
         read = self.ser.readline().decode()
         print(read + '\n')
 
-    def drill(self):
-        self.move('relative', 'xyz', 0.3, 100, 0, 0, 20)
+    def move_in_workspace(self, x, y):
+        """
+        move robot in workspace coordinate
+        """
+        # check constraints
+        if not ((self.workspace_boundary[0] < x < self.workspace_boundary[1]) or (self.workspace_boundary[2] < y < self.workspace_boundary[3])):
+            print("target position is out of workspace boundary")
+            return False
+
+        x_abs = self.origin[0] + x
+        y_abs = self.origin[1] + y
+        self.move('absolute', 'xy', 0.3, 100, x_abs, y_abs, 0)
         time.sleep(2)
-        self.move('relative', 'xyz', 0.3, 100, 0, 0, -20)
+        return True
+
+    def drill(self):
+        self.move('relative', 'z', 0.3, 100, 0, 0, 20)
+        time.sleep(2)
+        self.move('relative', 'z', 0.3, 100, 0, 0, -20)
         time.sleep(2)
 
     def set_workspace(self, origin, x_len, y_len):
@@ -134,7 +149,7 @@ class IAI:
         self.move('absolute', 'xyz', 0.3, 100, x_max, y_max, 0)
         time.sleep(2)
 
-        self.workspace_boundary = [0, 0, x_len, y_len]
+        self.workspace_boundary = [x_min, y_min, x_max, y_max]
         self.origin = origin
 
     def check_status(self, axis):
@@ -166,7 +181,6 @@ class IAI:
         axis_pattern = response[3:5]
         axis_status = response[5:7]
 
-
     def checksum(self, string_command):
         checksum = 0
         for i in range(0, len(string_command)):
@@ -177,19 +191,29 @@ class IAI:
 
 
 if __name__ == "__main__":
-    set_port = 'COM5'  # Please check the port at Device Manager
+    # check the port at Device Manager for Window
+    # set to /dev/ttyUSB0 for linux
+    set_port = 'COM5'
     set_baudrate = 38400
     set_timeout = 3
 
     # initialize
     robot = IAI(set_port, set_baudrate, set_timeout)
     robot.set_workspace((20, 150), 130, 130)
+
     # while True:
     #     robot.check_status('xyz')
 
-
+    # move in absolute coordinate
     # positions = [(10, 10, 0), (20, 10, 0), (30, 10, 0)]
     # for position in positions:
     #     robot.move('absolute', 'xyz', 0.3, 100, position[0], position[1], 0)
     #     time.sleep(2)
     #     robot.drill()
+
+    # move in workspace coordinate
+    positions = [(10, 10), (20, 10), (30, 10)]
+    for position in positions:
+        robot.move_in_workspace(position[0], position[1])
+        time.sleep(2)
+        robot.drill()
