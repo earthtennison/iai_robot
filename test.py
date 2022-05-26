@@ -51,3 +51,4 @@ def hex_to_binary( hex_code ):
 
 # print(bin(0xA))
 print(str(bin(int("1C",16)))[2:].rjust(8,'0'))
+print(1 & ~1)

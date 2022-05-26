@@ -6,18 +6,20 @@ class IAI:
     def __init__(self, set_port, set_baudrate, set_timeout):
         # start serial connection
         self.ser = serial.Serial(set_port, set_baudrate, timeout=set_timeout)
+        print("Initialized connection at port {}".format(set_port))
 
         # servo xyz on
         self.ser.write('!00232071b0\r\n'.encode())
         read = self.ser.readline().decode()
-        print(read + '\n')
-        time.sleep(1)
+        # print(read + '\n')
+        self.wait()
 
         # set home
+        print("Setting home...")
         self.ser.write('!0023307000000a0\r\n'.encode())
         read = self.ser.readline().decode()
-        print(read + '\n')
-        time.sleep(15)
+        # print(read + '\n')
+        self.wait()
 
         self.origin = None
         self.workspace_boundary = None  # [x_min, y_min, x_max, y_max] in absolute coordinate
@@ -105,7 +107,7 @@ class IAI:
 
         self.ser.write((string_command + '\r\n').encode())
         read = self.ser.readline().decode()
-        print(read + '\n')
+        # print(read + '\n')
 
     def move_in_workspace(self, x, y):
         """
@@ -134,6 +136,7 @@ class IAI:
         # stop motor code here
 
         ####################
+
     def set_workspace(self, origin, x_len, y_len):
         """
         set workspace range and return contraints to not go out the area
@@ -181,19 +184,19 @@ class IAI:
 
         self.ser.write((string_command + '\r\n').encode())
         response = self.ser.readline().decode()
-        print(response + '\n')
+        # print(response + '\n')
 
         # interpret response
-        axis_pattern = response[7:9]
-        axis_status = response[9:11]
-        axis_status = str(bin(int(axis_status,16)))[2:].rjust(8,'0') # hexstring to binary
+        axis_pattern = response[6:8]
+        axis_status = response[8:10]
+        axis_status = str(bin(int(axis_status, 16)))[2:].rjust(8, '0')  # hexstring to binary
+        print("axis status : {}".format(axis_status))
         servo_is_stop = axis_status[7]
         is_home = axis_status[5:7]
         servo_is_on = axis_status[4]
         command_is_done = axis_status[3]
 
-        return command_is_done
-
+        return int(command_is_done) & ~int(servo_is_stop)
 
     def checksum(self, string_command):
         checksum = 0
@@ -202,6 +205,10 @@ class IAI:
         checksum = hex(int(checksum)).lstrip('0x')
         checksum = checksum[-2:]
         return checksum
+
+    def wait(self):
+        while not self.check_status('xyz'):
+            time.sleep(0.1)
 
 
 if __name__ == "__main__":
@@ -213,22 +220,21 @@ if __name__ == "__main__":
 
     # initialize
     robot = IAI(set_port, set_baudrate, set_timeout)
-    robot.set_workspace((20, 150), 130, 130)
-
-    # while True:
-    #     robot.check_status('xyz')
+    # robot.set_workspace((20, 150), 130, 130)
 
     # move in absolute coordinate
-    # positions = [(10, 10, 0), (20, 10, 0), (30, 10, 0)]
-    # for position in positions:
-    #     robot.move('absolute', 'xyz', 0.3, 100, position[0], position[1], 0)
-    #     time.sleep(2)
-    #     robot.drill()
+    # print("status: {}".format(robot.check_status('xyz')))
+
+    positions = [(10, 10, 0), (20, 10, 0), (30, 10, 0)]
+    for position in positions:
+        print("move to {},{}".format(position[0], position[1]))
+        robot.move('absolute', 'xyz', 0.3, 100, position[0], position[1], 0)
+        robot.wait()
 
     # move in workspace coordinate
-    positions = [(10, 10), (20, 10), (30, 10)]
-    for position in positions:
-        robot.move_in_workspace(position[0], position[1])
-        while(robot.check_status() != '1'):
-            time.sleep(0.1)
-        robot.drill()
+    # positions = [(10, 10), (20, 10), (30, 10)]
+    # for position in positions:
+    #     robot.move_in_workspace(position[0], position[1])
+    #     while(robot.check_status() != '1'):
+    #         time.sleep(0.1)
+    #     robot.drill()
